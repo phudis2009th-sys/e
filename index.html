@@ -70,6 +70,59 @@
                 </button>
             </nav>
 
+            <!-- ESP32 Connection Section (Sidebar) -->
+            <div class="sidebar-connection">
+                <div class="sidebar-section-header" data-i18n="sidebar-connect-title">ESP32 CONNECTION</div>
+                
+                <div class="conn-select-wrapper">
+                    <select id="conn-mode-select" class="conn-select">
+                        <option value="mode-ble" selected data-i18n="conn-tab-ble">Bluetooth (BLE)</option>
+                        <option value="mode-serial" data-i18n="conn-tab-serial">USB Serial</option>
+                        <option value="mode-wifi" data-i18n="conn-tab-wifi">Wi-Fi (WS)</option>
+                        <option value="mode-sim" data-i18n="conn-tab-sim">Simulator</option>
+                    </select>
+                </div>
+
+                <!-- Connection panels inside sidebar -->
+                <div class="sidebar-conn-panels">
+                    <!-- BLE Panel -->
+                    <div class="sidebar-conn-panel active" id="sidebar-pane-ble">
+                        <button class="btn btn-primary btn-sm btn-full" id="btn-connect-ble" data-i18n="conn-btn-ble">Scan & Connect BLE</button>
+                    </div>
+
+                    <!-- Serial Panel -->
+                    <div class="sidebar-conn-panel" id="sidebar-pane-serial">
+                        <button class="btn btn-primary btn-sm btn-full" id="btn-connect-serial" data-i18n="conn-btn-serial">🔌 Connect Port</button>
+                    </div>
+
+                    <!-- Wi-Fi Panel -->
+                    <div class="sidebar-conn-panel" id="sidebar-pane-wifi">
+                        <input type="text" id="wifi-ip" class="wifi-input-sm" placeholder="e.g. 192.168.1.150" value="192.168.1.">
+                        <button class="btn btn-secondary btn-sm btn-full" id="btn-connect-wifi" data-i18n="conn-btn-wifi">Connect</button>
+                    </div>
+
+                    <!-- Simulator Panel -->
+                    <div class="sidebar-conn-panel" id="sidebar-pane-sim">
+                        <div class="sim-switch-row">
+                            <span data-i18n="conn-label-sim" class="small-text">Hardware Simulator</span>
+                            <label class="switch switch-sm">
+                                <input type="checkbox" id="sim-toggle">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ESP32-CAM Toggle Row inside Sidebar -->
+                <div class="sidebar-cam-row">
+                    <span data-i18n="sidebar-cam-toggle" class="small-text">ESP32-CAM stream:</span>
+                    <label class="switch switch-sm">
+                        <input type="checkbox" id="cam-toggle">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
             <div class="user-card">
                 <div class="avatar-small">👤</div>
                 <div class="user-info">
@@ -223,53 +276,51 @@
 
                     <!-- Column Right: Connection & Gauge Readings -->
                     <div class="dashboard-controls-column">
-                        <!-- ESP32 Connection panel -->
-                        <div class="card glass-card">
+                        <!-- ESP32-CAM Live View panel -->
+                        <div class="card glass-card hidden" id="camera-card">
                             <div class="card-header">
-                                <h2 data-i18n="card-connect-title">Connect ESP32 Sensor</h2>
+                                <h2 data-i18n="cam-card-title">ESP32-CAM Live View</h2>
+                                <span class="tag secondary" id="camera-status-tag" data-i18n="cam-status-offline">Camera Offline</span>
                             </div>
                             <div class="card-body">
-                                <div class="tabs-sub">
-                                    <button class="sub-tab active" data-conn="mode-ble" data-i18n="conn-tab-ble">Bluetooth (BLE)</button>
-                                    <button class="sub-tab" data-conn="mode-serial" data-i18n="conn-tab-serial">USB Serial</button>
-                                    <button class="sub-tab" data-conn="mode-wifi" data-i18n="conn-tab-wifi">Wi-Fi (WS)</button>
-                                    <button class="sub-tab" data-conn="mode-sim" data-i18n="conn-tab-sim">Simulator</button>
+                                <div class="cam-controls-row">
+                                    <div class="cam-control-select">
+                                        <span data-i18n="cam-mode-label" class="small-label">Video Source:</span>
+                                        <select id="cam-source-select" class="cam-select">
+                                            <option value="mode-esp32cam" selected data-i18n="cam-mode-esp32cam">ESP32-CAM IP Stream</option>
+                                            <option value="mode-webcam" data-i18n="cam-mode-webcam">Web Camera (Simulator)</option>
+                                        </select>
+                                    </div>
                                 </div>
 
-                                <!-- Connection details content -->
-                                <div class="conn-content" id="conn-details-container">
-                                    <!-- BLE View -->
-                                    <div class="conn-panel active" id="pane-ble">
-                                        <p class="conn-desc" data-i18n="conn-desc-ble">Pairs wirelessly via Web Bluetooth. Ideal for mobile or laptop devices without cables.</p>
-                                        <button class="btn btn-primary btn-full" id="btn-connect-ble" data-i18n="conn-btn-ble">Scan & Connect BLE</button>
+                                <div class="cam-url-row" id="cam-url-container">
+                                    <input type="text" id="cam-stream-url" placeholder="http://192.168.1.50:81/stream" value="http://192.168.1.">
+                                    <button class="btn btn-secondary btn-sm" id="btn-connect-cam" data-i18n="cam-btn-connect">Connect Video</button>
+                                </div>
+
+                                <!-- Camera preview display container -->
+                                <div class="camera-preview-container">
+                                    <!-- Webcam video feed -->
+                                    <video id="webcam-feed" autoplay playsinline muted class="hidden"></video>
+                                    <!-- ESP32-CAM MJPEG image feed -->
+                                    <img id="esp32cam-feed" class="hidden" alt="ESP32-CAM Stream" src="">
+                                    
+                                    <!-- Placeholder when offline -->
+                                    <div class="camera-placeholder" id="camera-placeholder">
+                                        <div class="camera-placeholder-icon">📷</div>
+                                        <div class="camera-placeholder-text">Camera stream disabled or disconnected. Toggle "ESP32-CAM stream" in the sidebar and click Connect.</div>
                                     </div>
 
-                                    <!-- Serial View -->
-                                    <div class="conn-panel" id="pane-serial">
-                                        <p class="conn-desc" data-i18n="conn-desc-serial">Connects via USB cable. Highly stable connection directly reading Serial raw feeds.</p>
-                                        <button class="btn btn-primary btn-full" id="btn-connect-serial" data-i18n="conn-btn-serial">🔌 Connect via Serial Port</button>
-                                    </div>
+                                    <!-- HUD Overlay Canvas -->
+                                    <canvas id="hud-canvas"></canvas>
+                                </div>
 
-                                    <!-- Wi-Fi WS View -->
-                                    <div class="conn-panel" id="pane-wifi">
-                                        <p class="conn-desc" data-i18n="conn-desc-wifi">Enter the IP address shown in your ESP32 Serial Monitor to connect over WebSocket.</p>
-                                        <div class="input-group">
-                                            <input type="text" id="wifi-ip" placeholder="e.g. 192.168.1.150" value="192.168.1.">
-                                            <button class="btn btn-secondary" id="btn-connect-wifi" data-i18n="conn-btn-wifi">Connect</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Simulator View -->
-                                    <div class="conn-panel" id="pane-sim">
-                                        <p class="conn-desc" data-i18n="conn-desc-sim">No ESP32 hardware? Turn on simulator mode to control sensor values manually below.</p>
-                                        <div class="sim-switch-container">
-                                            <span data-i18n="conn-label-sim">Hardware Simulator Mode</span>
-                                            <label class="switch">
-                                                <input type="checkbox" id="sim-toggle">
-                                                <span class="slider round"></span>
-                                            </label>
-                                        </div>
-                                    </div>
+                                <div class="cam-hud-toggle-row">
+                                    <label class="checkbox-container">
+                                        <input type="checkbox" id="hud-toggle" checked>
+                                        <span class="checkmark"></span>
+                                        <span data-i18n="cam-overlay-toggle">Show Diagnostic HUD</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -725,7 +776,7 @@ void loop() {
 
     <!-- Script assets -->
     <script src="translations.js"></script>
-    <script src="charts.js"></script>
+    <script src="charts-setup.js"></script>
     <script src="ai-engine.js"></script>
     <script src="app.js"></script>
 </body>

@@ -145,7 +145,21 @@ const TRANSLATIONS = {
         "sim-label-spine": "Spine Tilt Angle (-30° to 45°): ",
         "sim-label-neck": "Neck Flex Sensor (0 to 100): ",
         "sim-label-pressure": "Pressure Sensor / FSR (0 to 100): ",
-        "sim-label-sideways": "Sideways Tilt Angle (-30° to 30°): "
+        "sim-label-sideways": "Sideways Tilt Angle (-30° to 30°): ",
+        
+        // ESP32-CAM and Sidebar Connection additions
+        "sidebar-connect-title": "ESP32 CONNECTION",
+        "cam-card-title": "ESP32-CAM Live View",
+        "cam-label-stream-url": "Stream IP / URL",
+        "cam-btn-connect": "Connect Video",
+        "cam-btn-disconnect": "Stop Video",
+        "cam-mode-label": "Video Source:",
+        "cam-mode-esp32cam": "ESP32-CAM IP Stream",
+        "cam-mode-webcam": "Web Camera (Simulator)",
+        "cam-status-offline": "Camera Offline",
+        "cam-status-online": "Camera Live",
+        "cam-overlay-toggle": "Show Diagnostic HUD",
+        "sidebar-cam-toggle": "ESP32-CAM stream:"
     },
     th: {
         // Sidebar Navigation
@@ -281,7 +295,7 @@ const TRANSLATIONS = {
         "state-side": "นั่งตัวเอียงข้าง",
 
         // Simulator labels
-        "sim-title": "🤖 ESP32 Hardware Simulator",
+        "sim-title": "🤖 เครื่องจำลองบอร์ดเซนเซอร์ ESP32",
         "sim-preset-label": "ปุ่มเซ็ตค่าสำเร็จรูป:",
         "sim-preset-empty": "เก้าอี้ว่าง",
         "sim-preset-good": "ท่านั่งที่ดี",
@@ -291,6 +305,20 @@ const TRANSLATIONS = {
         "sim-label-spine": "มุมเอียงกระดูกสันหลัง (-30° ถึง 45°): ",
         "sim-label-neck": "เซนเซอร์ก้มคอ (0 ถึง 100): ",
         "sim-label-pressure": "เซนเซอร์วัดแรงกดเบาะ (0 ถึง 100): ",
-        "sim-label-sideways": "มุมเอียงตัวออกด้านข้าง (-30° ถึง 30°): "
+        "sim-label-sideways": "มุมเอียงตัวออกด้านข้าง (-30° ถึง 30°): ",
+        
+        // ESP32-CAM and Sidebar Connection additions
+        "sidebar-connect-title": "การเชื่อมต่อ ESP32",
+        "cam-card-title": "กล้องไลฟ์ฟีด ESP32-CAM",
+        "cam-label-stream-url": "ลิงก์สตรีม (IP/URL)",
+        "cam-btn-connect": "เชื่อมต่อกล้อง",
+        "cam-btn-disconnect": "ปิดกล้อง",
+        "cam-mode-label": "แหล่งสัญญาณภาพ:",
+        "cam-mode-esp32cam": "ลิงก์สตรีม ESP32-CAM",
+        "cam-mode-webcam": "กล้องเว็บแคม (ตัวจำลอง)",
+        "cam-status-offline": "กล้องออฟไลน์",
+        "cam-status-online": "กล้องกำลังทำงาน",
+        "cam-overlay-toggle": "แสดงเส้นโครงกระดูกอัจฉริยะ",
+        "sidebar-cam-toggle": "เปิดระบบกล้องติดตามตัว:"
     }
 };

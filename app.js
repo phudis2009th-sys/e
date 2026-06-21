@@ -29,17 +29,30 @@ const WARNING_THRESHOLD_SECONDS = 5; // Alert if slouching for 5 seconds
 // Localization State
 let currentLanguage = 'en'; // default language
 
+// ESP32-CAM and Camera stream state
+let isCamStreamActive = false;
+let cameraMode = 'mode-esp32cam'; // mode-esp32cam, mode-webcam
+let isCamConnected = false;
+let webcamStream = null;
+let hudAnimationId = null;
+
 // DOM elements cache
 let elConnectionBadge, elConnectionStatusText, elSessionTime, elPostureStateTag, elAvatarStatusDesc;
 let elSpineVal, elSpineFill, elNeckVal, elNeckFill, elPressureVal, elPressureFill;
 let elAvatarAlert, elAvatarAlertMsg, elSimToggle, elSimDock;
 let elTorsoContour, elArmContour;
 
+// Camera DOM elements cache
+let elCamToggle, elCameraCard, elCamSourceSelect, elCamUrlContainer, elCamStreamUrl;
+let elBtnConnectCam, elWebcamFeed, elEsp32camFeed, elCameraPlaceholder, elHudCanvas, elHudToggle, elCameraStatusTag;
+let elConnModeSelect;
+
 document.addEventListener('DOMContentLoaded', () => {
     initDOMElements();
     setupTabNavigation();
-    setupConnectionSubTabs();
+    setupConnectionSelect();
     setupHardwareSimulator();
+    setupCameraSystem();
     setupChatSystem();
     setupFirmwareCopy();
     setupDirectConnectButtons();
@@ -71,6 +84,21 @@ function initDOMElements() {
     
     elTorsoContour = document.getElementById('torso-contour');
     elArmContour = document.getElementById('arm-contour');
+    
+    // New Camera & connection caches
+    elCamToggle = document.getElementById('cam-toggle');
+    elCameraCard = document.getElementById('camera-card');
+    elCamSourceSelect = document.getElementById('cam-source-select');
+    elCamUrlContainer = document.getElementById('cam-url-container');
+    elCamStreamUrl = document.getElementById('cam-stream-url');
+    elBtnConnectCam = document.getElementById('btn-connect-cam');
+    elWebcamFeed = document.getElementById('webcam-feed');
+    elEsp32camFeed = document.getElementById('esp32cam-feed');
+    elCameraPlaceholder = document.getElementById('camera-placeholder');
+    elHudCanvas = document.getElementById('hud-canvas');
+    elHudToggle = document.getElementById('hud-toggle');
+    elCameraStatusTag = document.getElementById('camera-status-tag');
+    elConnModeSelect = document.getElementById('conn-mode-select');
 }
 
 // 1. Sidebar tab switching
@@ -220,23 +248,34 @@ function getTranslatedState(state) {
     return state;
 }
 
-// 3. Connection panel sub-tabs switching
-function setupConnectionSubTabs() {
-    const subTabs = document.querySelectorAll('.sub-tab');
-    subTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            subTabs.forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.conn-panel').forEach(p => p.classList.remove('active'));
-            
-            tab.classList.add('active');
-            connectionType = tab.getAttribute('data-conn');
-            
-            // Activate panel
-            if (connectionType === 'mode-ble') document.getElementById('pane-ble').classList.add('active');
-            if (connectionType === 'mode-serial') document.getElementById('pane-serial').classList.add('active');
-            if (connectionType === 'mode-wifi') document.getElementById('pane-wifi').classList.add('active');
-            if (connectionType === 'mode-sim') document.getElementById('pane-sim').classList.add('active');
-        });
+// 3. Connection selection dropdown
+function setupConnectionSelect() {
+    if (!elConnModeSelect) return;
+    elConnModeSelect.addEventListener('change', (e) => {
+        connectionType = e.target.value;
+        
+        // Hide all connection sub-panels
+        document.querySelectorAll('.sidebar-conn-panel').forEach(p => p.classList.remove('active'));
+        
+        // Show selected panel
+        if (connectionType === 'mode-ble') document.getElementById('sidebar-pane-ble').classList.add('active');
+        if (connectionType === 'mode-serial') document.getElementById('sidebar-pane-serial').classList.add('active');
+        if (connectionType === 'mode-wifi') document.getElementById('sidebar-pane-wifi').classList.add('active');
+        if (connectionType === 'mode-sim') document.getElementById('sidebar-pane-sim').classList.add('active');
+        
+        // If switching away from simulator, turn off simulator mode
+        if (connectionType !== 'mode-sim') {
+            if (elSimToggle && elSimToggle.checked) {
+                elSimToggle.checked = false;
+                elSimToggle.dispatchEvent(new Event('change'));
+            }
+        } else {
+            // Automatically turn simulator on when simulator mode selected
+            if (elSimToggle && !elSimToggle.checked) {
+                elSimToggle.checked = true;
+                elSimToggle.dispatchEvent(new Event('change'));
+            }
+        }
     });
 }
 
@@ -666,6 +705,7 @@ function handleWarningAlerts(state) {
         if (warningConsecutiveCount >= WARNING_THRESHOLD_SECONDS) {
             elAvatarAlert.classList.remove('hidden');
             
+            // Map text dynamically based on language
             if (state === POSTURE_SLOUCHED) elAvatarAlertMsg.textContent = TRANSLATIONS[currentLanguage]['alert-msg-slouched'];
             if (state === POSTURE_NECK_FORWARD) elAvatarAlertMsg.textContent = TRANSLATIONS[currentLanguage]['alert-msg-neck'];
             if (state === POSTURE_LEANING_SIDE) elAvatarAlertMsg.textContent = TRANSLATIONS[currentLanguage]['alert-msg-side'];
@@ -837,15 +877,425 @@ function setupFirmwareCopy() {
                 btn.style.backgroundColor = "var(--success)";
                 btn.style.color = "white";
                 
-                setTimeout(() => {
-                    btn.textContent = TRANSLATIONS[currentLanguage]['firmware-code-btn'];
-                    btn.style.backgroundColor = "";
-                    btn.style.color = "";
-                }, 2000);
             })
             .catch(err => {
                 console.error("Copy failed:", err);
                 alert("Failed to copy firmware text automatically.");
             });
     });
+}
+
+// 13. Camera & ESP32-CAM stream controls
+function setupCameraSystem() {
+    if (!elCamToggle || !elCameraCard) return;
+
+    // Sidebar Camera Toggle
+    elCamToggle.addEventListener('change', () => {
+        isCamStreamActive = elCamToggle.checked;
+        if (isCamStreamActive) {
+            elCameraCard.classList.remove('hidden');
+        } else {
+            elCameraCard.classList.add('hidden');
+            stopAllStreams();
+        }
+    });
+
+    // Camera source selector dropdown
+    if (elCamSourceSelect) {
+        elCamSourceSelect.addEventListener('change', (e) => {
+            cameraMode = e.target.value;
+            stopAllStreams();
+            
+            if (cameraMode === 'mode-esp32cam') {
+                elCamUrlContainer.classList.remove('hidden');
+            } else {
+                elCamUrlContainer.classList.add('hidden');
+            }
+        });
+    }
+
+    // Connect Camera button click
+    if (elBtnConnectCam) {
+        elBtnConnectCam.addEventListener('click', () => {
+            if (isCamConnected) {
+                stopAllStreams();
+            } else {
+                if (cameraMode === 'mode-esp32cam') {
+                    const url = elCamStreamUrl.value.trim();
+                    startESP32Cam(url);
+                } else {
+                    startWebcam();
+                }
+            }
+        });
+    }
+}
+
+// Start local Web Camera feed
+async function startWebcam() {
+    try {
+        stopAllStreams();
+        const constraints = { 
+            video: { width: { ideal: 640 }, height: { ideal: 480 } }, 
+            audio: false 
+        };
+        webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+        elWebcamFeed.srcObject = webcamStream;
+        elWebcamFeed.classList.remove('hidden');
+        elEsp32camFeed.classList.add('hidden');
+        elCameraPlaceholder.classList.add('hidden');
+        
+        isCamConnected = true;
+        updateCameraStatus(true);
+        startHUDAnimation();
+    } catch (err) {
+        console.error("Web Camera access error:", err);
+        alert(currentLanguage === 'en' 
+            ? "Could not access local Web Camera. Please verify camera permissions in your browser."
+            : "ไม่สามารถเข้าถึงกล้องเว็บแคมได้ กรุณาตรวจสอบการอนุญาตใช้งานกล้องในเบราว์เซอร์");
+        updateCameraStatus(false);
+    }
+}
+
+// Start ESP32-CAM MJPEG stream loading
+function startESP32Cam(url) {
+    stopAllStreams();
+    if (!url || url === 'http://192.168.1.') {
+        alert(currentLanguage === 'en' 
+            ? "Please enter a valid ESP32-CAM stream IP URL." 
+            : "กรุณาระบุหมายเลข URL สำหรับสตรีมกล้อง ESP32-CAM ให้ถูกต้อง");
+        return;
+    }
+    
+    // Automatically add http:// if missing
+    let fullUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        fullUrl = 'http://' + url;
+    }
+    
+    updateCameraStatus(true, true); // show connecting state
+    
+    elEsp32camFeed.src = fullUrl;
+    elEsp32camFeed.classList.remove('hidden');
+    elWebcamFeed.classList.add('hidden');
+    elCameraPlaceholder.classList.add('hidden');
+    
+    elEsp32camFeed.onload = () => {
+        isCamConnected = true;
+        updateCameraStatus(true);
+        startHUDAnimation();
+    };
+    
+    elEsp32camFeed.onerror = () => {
+        console.warn("Failed to load ESP32-CAM MJPEG stream");
+        alert(currentLanguage === 'en'
+            ? "Failed to load camera stream. Make sure the ESP32-CAM is connected to the same Wi-Fi network and the IP is correct."
+            : "ไม่สามารถเชื่อมต่อกล้องได้ กรุณาตรวจสอบให้มั่นใจว่า ESP32-CAM อยู่บนเครือข่าย Wi-Fi เดียวกันและหมายเลข IP ถูกต้อง");
+        stopAllStreams();
+    };
+}
+
+// Stop all running camera feeds
+function stopAllStreams() {
+    isCamConnected = false;
+    updateCameraStatus(false);
+    stopHUDAnimation();
+    
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+    }
+    if (elWebcamFeed) {
+        elWebcamFeed.srcObject = null;
+        elWebcamFeed.classList.add('hidden');
+    }
+    
+    if (elEsp32camFeed) {
+        elEsp32camFeed.removeAttribute('src'); // Stop browser load requests
+        elEsp32camFeed.classList.add('hidden');
+    }
+    
+    if (elCameraPlaceholder) {
+        elCameraPlaceholder.classList.remove('hidden');
+    }
+}
+
+// Update camera tag and button labels based on connection state
+function updateCameraStatus(active, connecting = false) {
+    if (!elCameraStatusTag || !elBtnConnectCam) return;
+    
+    if (active) {
+        if (connecting) {
+            elCameraStatusTag.className = 'tag secondary';
+            elCameraStatusTag.setAttribute('data-i18n', 'conn-connecting');
+            elCameraStatusTag.textContent = currentLanguage === 'en' ? "Connecting..." : "กำลังเชื่อมต่อ...";
+        } else {
+            elCameraStatusTag.className = 'tag';
+            elCameraStatusTag.style.backgroundColor = 'var(--success-light)';
+            elCameraStatusTag.style.color = 'var(--success)';
+            elCameraStatusTag.setAttribute('data-i18n', 'cam-status-online');
+            elCameraStatusTag.textContent = TRANSLATIONS[currentLanguage]['cam-status-online'];
+            
+            elBtnConnectCam.setAttribute('data-i18n', 'cam-btn-disconnect');
+            elBtnConnectCam.textContent = TRANSLATIONS[currentLanguage]['cam-btn-disconnect'];
+            elBtnConnectCam.className = 'btn btn-secondary btn-sm';
+        }
+    } else {
+        elCameraStatusTag.className = 'tag secondary';
+        elCameraStatusTag.style.backgroundColor = '';
+        elCameraStatusTag.style.color = '';
+        elCameraStatusTag.setAttribute('data-i18n', 'cam-status-offline');
+        elCameraStatusTag.textContent = TRANSLATIONS[currentLanguage]['cam-status-offline'];
+        
+        elBtnConnectCam.setAttribute('data-i18n', 'cam-btn-connect');
+        elBtnConnectCam.textContent = TRANSLATIONS[currentLanguage]['cam-btn-connect'];
+        elBtnConnectCam.className = 'btn btn-primary btn-sm';
+    }
+}
+
+// Animating Cybernetic HUD Canvas overlay
+function startHUDAnimation() {
+    stopHUDAnimation();
+    renderHUD();
+}
+
+function stopHUDAnimation() {
+    if (hudAnimationId) {
+        cancelAnimationFrame(hudAnimationId);
+        hudAnimationId = null;
+    }
+    // Clear canvas
+    if (elHudCanvas) {
+        const ctx = elHudCanvas.getContext('2d');
+        ctx.clearRect(0, 0, elHudCanvas.width, elHudCanvas.height);
+    }
+}
+
+function renderHUD() {
+    if (!isCamConnected || !elHudCanvas) return;
+    
+    const ctx = elHudCanvas.getContext('2d');
+    const width = elHudCanvas.clientWidth;
+    const height = elHudCanvas.clientHeight;
+    
+    // Set actual resolution equal to display resolution
+    elHudCanvas.width = width;
+    elHudCanvas.height = height;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    const isHudVisible = elHudToggle ? elHudToggle.checked : true;
+    
+    if (isHudVisible) {
+        // Draw cybernetic scanning lines/boxes
+        const state = classifyPosture(spineAngle, neckFlex, pressureValue, sidewaysAngle);
+        let neonColor = 'rgba(148, 163, 184, 0.7)'; // Muted gray (default empty)
+        let borderNeon = 'rgba(148, 163, 184, 0.3)';
+        let postureLabel = currentLanguage === 'en' ? "CHAIR EMPTY" : "ไม่มีผู้นั่ง";
+        
+        if (state === POSTURE_GOOD) {
+            neonColor = 'rgba(16, 185, 129, 0.85)'; // Green
+            borderNeon = 'rgba(16, 185, 129, 0.4)';
+            postureLabel = currentLanguage === 'en' ? "ALIGNMENT: EXCELLENT" : "แนวกระดูก: ยอดเยี่ยม";
+        } else if (state === POSTURE_SLOUCHED) {
+            neonColor = 'rgba(239, 68, 68, 0.85)'; // Red
+            borderNeon = 'rgba(239, 68, 68, 0.4)';
+            postureLabel = currentLanguage === 'en' ? "ALIGNMENT: POOR (SLOUCHED)" : "แนวกระดูก: ผิดปกติ (นั่งหลังค่อม)";
+        } else if (state === POSTURE_NECK_FORWARD) {
+            neonColor = 'rgba(245, 158, 11, 0.85)'; // Orange/Amber
+            borderNeon = 'rgba(245, 158, 11, 0.4)';
+            postureLabel = currentLanguage === 'en' ? "ALIGNMENT: NECK STRAIN" : "แนวกระดูก: โน้มไปข้างหน้ามาก";
+        } else if (state === POSTURE_LEANING_SIDE) {
+            neonColor = 'rgba(6, 182, 212, 0.85)'; // Cyan/Blue
+            borderNeon = 'rgba(6, 182, 212, 0.4)';
+            postureLabel = currentLanguage === 'en' ? "ALIGNMENT: ASYMMETRIC TILT" : "แนวกระดูก: เอียงตัวด้านข้าง";
+        }
+        
+        // 1. Draw glowing HUD corners
+        ctx.strokeStyle = neonColor;
+        ctx.lineWidth = 2.5;
+        const cornerLen = 15;
+        
+        // Top-left corner
+        ctx.beginPath();
+        ctx.moveTo(10 + cornerLen, 10); ctx.lineTo(10, 10); ctx.lineTo(10, 10 + cornerLen);
+        ctx.stroke();
+        
+        // Top-right corner
+        ctx.beginPath();
+        ctx.moveTo(width - 10 - cornerLen, 10); ctx.lineTo(width - 10, 10); ctx.lineTo(width - 10, 10 + cornerLen);
+        ctx.stroke();
+        
+        // Bottom-left corner
+        ctx.beginPath();
+        ctx.moveTo(10 + cornerLen, height - 10); ctx.lineTo(10, height - 10); ctx.lineTo(10, height - 10 - cornerLen);
+        ctx.stroke();
+        
+        // Bottom-right corner
+        ctx.beginPath();
+        ctx.moveTo(width - 10 - cornerLen, height - 10); ctx.lineTo(width - 10, height - 10); ctx.lineTo(width - 10, height - 10 - cornerLen);
+        ctx.stroke();
+
+        // If posture is bad, flash screen borders subtly
+        if (state !== POSTURE_GOOD && state !== POSTURE_EMPTY) {
+            if (Math.floor(Date.now() / 400) % 2 === 0) {
+                ctx.strokeStyle = neonColor;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(10, 10, width - 20, height - 20);
+                
+                ctx.fillStyle = neonColor.replace('0.85', '0.05');
+                ctx.fillRect(10, 10, width - 20, height - 20);
+            }
+        }
+        
+        // 2. Draw Digital Diagnostics Text
+        ctx.font = "bold 9px 'Outfit', sans-serif";
+        ctx.fillStyle = neonColor;
+        ctx.textAlign = "left";
+        ctx.fillText("ERGOAI VISION v1.2.0", 20, 28);
+        ctx.fillText(`STATUS: ${postureLabel}`, 20, 40);
+        
+        ctx.textAlign = "right";
+        ctx.fillText(`SPINE ANGLE: ${spineAngle.toFixed(1)}°`, width - 20, 28);
+        ctx.fillText(`NECK FLEX: ${neckFlex.toFixed(1)}%`, width - 20, 40);
+        ctx.fillText(`SIDE TILT: ${sidewaysAngle.toFixed(1)}°`, width - 20, 52);
+
+        // 3. Draw cybernetic skeleton if weight is on chair
+        if (pressureValue > 10) {
+            // Anchor coordinates (Pelvis in chair)
+            const pelvisX = width * 0.5; // Center horizontally
+            const pelvisY = height * 0.85;
+            
+            // Calculate spine vertebrae bend
+            const spineLength = height * 0.35;
+            const spineRad = (spineAngle * Math.PI) / 180;
+            
+            // Mirror coordinates visually because webcam is mirrored scaleX(-1)
+            const drawMirrorMultiplier = (cameraMode === 'mode-webcam') ? 1 : -1;
+            
+            const neckX = pelvisX + drawMirrorMultiplier * spineLength * Math.sin(spineRad);
+            const neckY = pelvisY - spineLength * Math.cos(spineRad);
+            
+            // Draw Pelvis Joint
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(pelvisX, pelvisY, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw Spine Path Bezier
+            ctx.beginPath();
+            ctx.moveTo(pelvisX, pelvisY);
+            // Control points for curved bending look
+            const cp1X = pelvisX + drawMirrorMultiplier * (spineLength * 0.5) * Math.sin(spineRad * 0.5);
+            const cp1Y = pelvisY - (spineLength * 0.5) * Math.cos(spineRad * 0.5);
+            ctx.quadraticCurveTo(cp1X, cp1Y, neckX, neckY);
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            
+            // Draw Vertebrae dotted beads along the spine
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2.5;
+            ctx.setLineDash([2, 8]);
+            ctx.beginPath();
+            ctx.moveTo(pelvisX, pelvisY);
+            ctx.quadraticCurveTo(cp1X, cp1Y, neckX, neckY);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dashed lines
+
+            // Draw Neck Joint
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(neckX, neckY, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw Neck Extension
+            const neckLength = height * 0.12;
+            const neckRad = ((spineAngle + neckFlex * 0.5) * Math.PI) / 180;
+            const headX = neckX + drawMirrorMultiplier * neckLength * Math.sin(neckRad);
+            const headY = neckY - neckLength * Math.cos(neckRad);
+            
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(neckX, neckY);
+            ctx.lineTo(headX, headY);
+            ctx.stroke();
+            
+            // Draw Head Circle (Face/Head Target)
+            const headR = height * 0.08;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.arc(headX, headY, headR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw crosshair box around the head
+            ctx.strokeStyle = neonColor;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(headX - headR - 4, headY - headR - 4, (headR + 4) * 2, (headR + 4) * 2);
+            
+            // Draw "HEAD LOCK" text above head
+            ctx.fillStyle = neonColor;
+            ctx.font = "700 8px 'Outfit', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("HEAD LOCK", headX, headY - headR - 8);
+
+            // Draw Shoulder/collar line tilting with sideways tilt
+            const shoulderHalfWidth = width * 0.15;
+            // Mirror sideways tilt visually
+            const sideRad = drawMirrorMultiplier * (sidewaysAngle * Math.PI) / 180;
+            const shLeftX = neckX - shoulderHalfWidth * Math.cos(sideRad);
+            const shLeftY = neckY - shoulderHalfWidth * Math.sin(sideRad);
+            const shRightX = neckX + shoulderHalfWidth * Math.cos(sideRad);
+            const shRightY = neckY + shoulderHalfWidth * Math.sin(sideRad);
+
+            ctx.strokeStyle = borderNeon;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(shLeftX, shLeftY);
+            ctx.lineTo(shRightX, shRightY);
+            ctx.stroke();
+
+            // Draw Shoulder joints
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.strokeStyle = borderNeon;
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath(); ctx.arc(shLeftX, shLeftY, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(shRightX, shRightY, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            
+        } else {
+            // Sweeping laser scanning overlay when chair is empty (Super premium sci-fi touch)
+            const scanTime = Date.now() / 1500;
+            const laserY = 40 + (height - 80) * (0.5 + 0.5 * Math.sin(scanTime * Math.PI));
+            
+            // Laser beam
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+            ctx.lineWidth = 2.5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(239, 68, 68, 0.8)';
+            ctx.beginPath();
+            ctx.moveTo(15, laserY);
+            ctx.lineTo(width - 15, laserY);
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+            
+            // Scanner text
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.6)';
+            ctx.font = "bold 8px 'Outfit', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("SCANNING FOR TARGET...", width / 2, laserY - 6);
+        }
+    }
+    
+    hudAnimationId = requestAnimationFrame(renderHUD);
 }

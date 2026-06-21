@@ -280,7 +280,7 @@ function generateAIResponse(userText) {
 - พิมพ์ **"เก้าอี้"** หรือ **"ปรับ"** เพื่อดูวิธีจัดท่านั่งและโต๊ะทำงาน
 - พิมพ์ **"ปวดหลัง"** เพื่อหาวิธีบรรเทาอาการปวดหลังส่วนล่าง`;
 
-} else {
+    } else {
         // English Conversational logic
         // 1. Neck stretch queries
         if (txt.includes('neck') || txt.includes('stretch') || txt.includes('shoulder')) {
