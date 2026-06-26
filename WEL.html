@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ErgoAI - Medical Posture Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+        }
+
+        body {
+            /* พื้นหลังสีฟ้านม-เทาอ่อน สไตล์ห้องแล็บแพทย์สมัยใหม่ */
+            background: radial-gradient(circle at center, #f0f7ff, #e2e8f0);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #0f172a;
+            overflow: hidden;
+        }
+
+        /* 🖼️ กล่องคอนเทนเนอร์มินิมอลสีขาวคลีน สไตล์คลินิก */
+        .welcome-container {
+            text-align: center;
+            padding: 3.5rem 2.5rem;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(255, 255, 255, 1);
+            border-radius: 32px;
+            /* เงาแบบนุ่มนวล สะอาดตา ไม่มืดดำ */
+            box-shadow: 0 4px 30px rgba(37, 99, 235, 0.04), 
+                        0 20px 50px rgba(148, 163, 184, 0.15);
+            max-width: 440px;
+            width: 90%;
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 🩺 โลโก้สีน้ำเงินการแพทย์ (Medical Blue) */
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #0284c7, #3b82f6);
+            border-radius: 24px;
+            margin: 0 auto 1.75rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.2);
+            transition: transform 0.4s ease;
+        }
+
+        .welcome-container:hover .logo-icon {
+            transform: scale(1.05);
+        }
+
+        .logo-icon svg {
+            color: #ffffff;
+        }
+
+        /* 📋 ส่วนคำบรรยายเชิงการแพทย์/วิทยาศาสตร์ */
+        .meta-tag {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #0284c7; /* สีฟ้าคลินิก */
+            background: #e0f2fe;
+            padding: 0.35rem 0.85rem;
+            border-radius: 100px;
+            margin-bottom: 1rem;
+        }
+
+        p.description {
+            color: #475569;
+            font-size: 0.95rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        p.description strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        /* 🔘 ปุ่มกดสี Deep Navy ดูน่าเชื่อถือ มั่นคง */
+        .enter-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 1.1rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+            background: #0f172a; 
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+        }
+
+        .enter-btn:hover {
+            transform: translateY(-2px);
+            background: #1e293b;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+        }
+
+        .enter-btn svg {
+            transition: transform 0.25s ease;
+        }
+
+        .enter-btn:hover svg {
+            transform: translateX(4px);
+        }
+
+        /* Animation ตอนเปิดหน้าเว็บ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="welcome-container">
+        <span class="meta-tag">AI Clinical Analytics</span>
+
+        <div class="logo-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+        </div>
+        
+        <p class="description">
+            ระบบวิเคราะห์และประเมินความเสี่ยงโรคออฟฟิศซินโดม <strong>(Office Syndrome)</strong> ผ่านเซนเซอร์อัจฉริยะแบบเรียลไทม์
+        </p>
+        
+        <a href="index.html" class="enter-btn">
+            เข้าสู่ระบบการวิเคราะห์
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+        </a>
+    </div>
+
+</body>
+</html>
